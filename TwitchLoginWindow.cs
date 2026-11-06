@@ -22,6 +22,7 @@ public sealed class TwitchLoginWindow : Window
     {
         _environment = environment;
         Title = "Sign in to Twitch - Stream Multiviewer";
+        Icon = Application.Current.MainWindow?.Icon;
         Width = 1000;
         Height = 760;
         MinWidth = 700;

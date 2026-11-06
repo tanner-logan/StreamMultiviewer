@@ -221,6 +221,7 @@ public sealed class VideoWallWindow : Window
         _environment = environment;
         _isTwitchMode = isTwitchMode;
         Title = "Stream Multiviewer";
+        Icon = Application.Current.MainWindow?.Icon;
         WindowStyle = WindowStyle.None;
         ResizeMode = ResizeMode.NoResize;
         WindowStartupLocation = WindowStartupLocation.Manual;
