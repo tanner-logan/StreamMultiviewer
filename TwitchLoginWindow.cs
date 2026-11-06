@@ -21,7 +21,7 @@ public sealed class TwitchLoginWindow : Window
     public TwitchLoginWindow(CoreWebView2Environment environment)
     {
         _environment = environment;
-        Title = "Sign in to Twitch - Stream Multiviewer";
+        Title = "Sign in to Twitch - StreamMultiviewer";
         Icon = Application.Current.MainWindow?.Icon;
         Width = 1000;
         Height = 760;

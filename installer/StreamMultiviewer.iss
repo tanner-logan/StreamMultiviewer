@@ -1,4 +1,4 @@
-#define AppName "Stream Multiviewer"
+#define AppName "StreamMultiviewer"
 #define AppExeName "StreamMultiviewer.exe"
 
 #ifndef AppVersion
@@ -8,8 +8,10 @@
 [Setup]
 AppId={{E57BEA98-0411-4B4D-870A-4EABCA167220}
 AppName={#AppName}
+AppVerName={#AppName}
 AppVersion={#AppVersion}
-DefaultDirName={localappdata}\Programs\Stream Multiviewer
+UninstallDisplayName={#AppName}
+DefaultDirName={localappdata}\Programs\{#AppName}
 DefaultGroupName={#AppName}
 UninstallDisplayIcon={app}\{#AppExeName}
 ArchitecturesAllowed=x64
