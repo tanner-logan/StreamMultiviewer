@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -11,31 +11,35 @@ public sealed class VideoWallWindow : Window
 {
     private const string PlayerViewScript = """
         (() => {
+          if (window.__windowSnapperInstalled) {
+            return window.__windowSnapperApply ? window.__windowSnapperApply() : 'waiting';
+          }
+          window.__windowSnapperInstalled = true;
+
           const selector = 'video[data-html5-video], video';
+          let playerFrame = null;
+
+          const setImportant = (element, props) => {
+            for (const [property, value] of Object.entries(props)) {
+              element.style.setProperty(property, value, 'important');
+            }
+          };
+
           const applyPlayerView = () => {
             const video = document.querySelector(selector);
-            if (!video || !document.body) return false;
-            const playerPoster = document.querySelector('.player-poster.clickable');
-            video.controls = true;
+            const target = video || playerFrame;
+            if (!target || !document.body) return false;
+            const playerPoster = video ? document.querySelector('.player-poster.clickable') : null;
+            if (video) video.controls = true;
 
             const html = document.documentElement;
-            html.style.setProperty('width', '100%', 'important');
-            html.style.setProperty('height', '100%', 'important');
-            html.style.setProperty('margin', '0', 'important');
-            html.style.setProperty('overflow', 'hidden', 'important');
-            html.style.setProperty('background', '#000', 'important');
+            setImportant(html, { width: '100%', height: '100%', margin: '0', overflow: 'hidden', background: '#000' });
+            setImportant(document.body, { width: '100%', height: '100%', margin: '0', overflow: 'hidden', background: '#000' });
 
-            const body = document.body;
-            body.style.setProperty('width', '100%', 'important');
-            body.style.setProperty('height', '100%', 'important');
-            body.style.setProperty('margin', '0', 'important');
-            body.style.setProperty('overflow', 'hidden', 'important');
-            body.style.setProperty('background', '#000', 'important');
-
-            for (const element of body.querySelectorAll('*')) {
+            for (const element of document.body.querySelectorAll('*')) {
               const isPlayerContent =
-                element === video ||
-                element.contains(video) ||
+                element === target ||
+                element.contains(target) ||
                 (playerPoster && (
                   element === playerPoster ||
                   element.contains(playerPoster) ||
@@ -46,9 +50,9 @@ public sealed class VideoWallWindow : Window
                 continue;
               }
 
-              if (element !== video &&
+              if (element !== target &&
                   !(playerPoster && (element === playerPoster || playerPoster.contains(element)))) {
-                const resets = {
+                setImportant(element, {
                   background: 'transparent',
                   border: '0',
                   'box-shadow': 'none',
@@ -59,61 +63,63 @@ public sealed class VideoWallWindow : Window
                   filter: 'none',
                   perspective: 'none',
                   contain: 'none'
-                };
-                for (const [property, value] of Object.entries(resets)) {
-                  element.style.setProperty(property, value, 'important');
-                }
+                });
               }
             }
 
             if (playerPoster) {
-              for (const [property, value] of Object.entries({
+              setImportant(playerPoster, {
                 position: 'fixed',
                 inset: '0',
                 width: '100vw',
                 height: '100vh',
                 'z-index': '2147483647',
                 'pointer-events': 'auto'
-              })) {
-                playerPoster.style.setProperty(property, value, 'important');
-              }
+              });
             }
 
-            for (const property of [
-              'position', 'top', 'left', 'right', 'bottom', 'width', 'height',
-              'max-width', 'max-height', 'margin', 'object-fit', 'background',
-              'z-index', 'display', 'visibility', 'opacity'
-            ]) {
-              video.style.setProperty(property, ({
-                position: 'fixed',
-                top: '0',
-                left: '0',
-                right: '0',
-                bottom: '0',
-                width: '100vw',
-                height: '100vh',
-                'max-width': 'none',
-                'max-height': 'none',
-                margin: '0',
-                'object-fit': 'contain',
-                background: '#000',
-                'z-index': '1',
-                display: 'block',
-                visibility: 'visible',
-                opacity: '1'
-              })[property], 'important');
+            setImportant(target, {
+              position: 'fixed',
+              top: '0',
+              left: '0',
+              right: '0',
+              bottom: '0',
+              width: '100vw',
+              height: '100vh',
+              'max-width': 'none',
+              'max-height': 'none',
+              margin: '0',
+              border: '0',
+              background: '#000',
+              'z-index': '1',
+              display: 'block',
+              visibility: 'visible',
+              opacity: '1',
+              ...(video ? { 'object-fit': 'contain' } : {})
+            });
+
+            if (window.parent !== window) {
+              window.parent.postMessage({ __windowSnapperPlayerFrame: true }, '*');
             }
             return true;
           };
 
-          if (!window.__windowSnapperObserver) {
-            window.__windowSnapperObserver = new MutationObserver(applyPlayerView);
-            window.__windowSnapperObserver.observe(document.documentElement, {
-              childList: true,
-              subtree: true
-            });
-          }
-          return applyPlayerView() ? 'ready' : 'waiting';
+          window.__windowSnapperApply = () => applyPlayerView() ? 'ready' : 'waiting';
+
+          window.addEventListener('message', event => {
+            if (!event.data || event.data.__windowSnapperPlayerFrame !== true) return;
+            const frame = [...document.querySelectorAll('iframe, frame')]
+              .find(candidate => candidate.contentWindow === event.source);
+            if (!frame || frame === playerFrame) return;
+            playerFrame = frame;
+            applyPlayerView();
+          });
+
+          new MutationObserver(applyPlayerView).observe(document, {
+            childList: true,
+            subtree: true
+          });
+          return window.__windowSnapperApply();
         })();
         """;
 
@@ -332,6 +338,12 @@ public sealed class VideoWallWindow : Window
         try
         {
             await webView.EnsureCoreWebView2Async(_environment);
+            if (!_isTwitchMode)
+            {
+                // Runs in every frame so players embedded in iframes are found too.
+                await webView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(PlayerViewScript);
+            }
+
             webView.NavigationCompleted += async (_, args) =>
             {
                 if (!args.IsSuccess)
